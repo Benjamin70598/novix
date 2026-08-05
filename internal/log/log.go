@@ -85,8 +85,17 @@ CREATE TABLE IF NOT EXISTS offsets (
 		return nil, fmt.Errorf("schema: %w", err)
 	}
 
-	return &Log{db: db, notify: make(map[string]chan struct{})}, nil
+	l := &Log{db: db, notify: make(map[string]chan struct{})}
+	if err := l.ensureM2Schema(); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return l, nil
 }
+
+// DB exposes the underlying handle so hub mode can share the same file.
+// Site tables and hub tables are disjoint schemas.
+func (l *Log) DB() *sql.DB { return l.db }
 
 // Close closes the underlying database.
 func (l *Log) Close() error { return l.db.Close() }

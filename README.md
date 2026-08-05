@@ -4,6 +4,8 @@ Edge-native event fabric. Process locally, sync what matters, survive partitions
 
 **Status: pre-alpha. Private. Building toward a single demo, not a product.**
 
+Milestone 1 (durable site log, local pub/sub, crash test) and Milestone 2 (policy engine, sync loop, hub mode, bandwidth meters) are complete and tested. Milestone 3 is the partitioned two-store docker demo.
+
 ## What this is
 
 Novix is a runtime for applications that run in many physical locations (stores, ships, warehouses, vehicles) where the network is unreliable and the business cannot stop when it fails.
@@ -35,13 +37,17 @@ Success criteria:
 ## Layout
 
 ```
-cmd/novixd/      single binary, agent mode (site) or hub mode (cloud)
-cmd/posgen/      demo producer (POS order + telemetry generator)
+cmd/novixd/      single binary: -mode agent (site) or -mode hub (cloud)
+cmd/posgen/      demo producer (POS orders)
+cmd/telegen/     demo producer (equipment telemetry)
 cmd/kds/         demo consumer (kitchen display)
-internal/log/    append-only per-topic log on SQLite (WAL)
-internal/policy/ policy file loading and event classification
-internal/sync/   site-to-hub sync loop, high-water marks, priority drain
-docs/            vision, decisions, demo spec, why-novix-exists
+internal/log/    append-only per-topic log on SQLite (WAL), sync state, meters
+internal/policy/ policy loading and write-time event classification
+internal/sync/   site-to-hub sync loop: priority drain, aggregation, meters
+internal/hub/    hub mode: idempotent sync sink, fleet view
+examples/        example site policy (store-a.yaml)
+third_party/     vendored yaml.v3 (offline builds, see DECISIONS 010)
+docs/            demo spec, why-novix-exists, architecture diagram
 ```
 
 ## Running (once milestone 1 lands)

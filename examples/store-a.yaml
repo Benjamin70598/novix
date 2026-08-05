@@ -1,0 +1,28 @@
+# Novix site policy for store-a.
+#
+# This file is the product: apps declare nothing, operators declare intent
+# here, and the runtime owns the mechanics.
+#
+# sync modes:
+#   all            every raw event crosses the WAN, in priority order
+#   immediate      like all, plus an append kicks the sync loop instantly
+#   aggregates_D   raw stays on site; only windowed stats sync (D = 10s, 5m, 1h...)
+#   none           never leaves the site
+#
+# priority: lower drains first on reconnect. 0 is for faults and safety.
+#
+# Demo note: fryer_telemetry uses a 10 second window so the effect is
+# visible in a live demo. A production policy would say aggregates_5m.
+
+site: store-a
+hub: http://127.0.0.1:9400
+
+topics:
+  equipment_faults: { sync: immediate, priority: 0 }
+  orders:           { sync: all, priority: 1 }
+  fryer_telemetry:  { sync: aggregates_10s, priority: 2, retention_local: 72h }
+  debug_dumps:      { sync: none, priority: 9 }
+
+offline:
+  continue: true
+  buffer: 72h

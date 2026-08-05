@@ -79,3 +79,26 @@ Append-only log of significant decisions. Newest at the bottom. Format: context,
 **Context:** Founder is employed full-time in adjacent infrastructure GTM. Name "Novix" has known collisions in unrelated industries (legal tech, industrial hardware).
 **Decision:** Repo private on personal account, personal hardware and time only, no employer assets, accounts, code, or customer-specific knowledge. Employment agreement IP assignment and invention-disclosure clauses to be reviewed this week, before any external sharing. Trademark search (classes 9 and 42) before public naming commitment; treat "Novix" as a working title.
 **Revisit when:** Agreement review completes, or before first public artifact, whichever is first.
+
+## 010: YAML parser is vendored with a replace directive
+
+**Date:** 2026-08-05
+**Context:** Policy files are YAML (the product aesthetic). gopkg.in was unreachable from the build environment, and offline-buildable is a virtue for a project whose whole thesis is disconnected operation.
+**Decision:** Vendor yaml.v3 under third_party/yaml.v3 with a go.mod replace directive; its tests and test-only deps are stripped. The repo builds with zero network access.
+**Revisit when:** Someone objects in code review, or yaml.v3 needs a security update (then either refresh the vendor copy or drop the replace and fetch upstream).
+
+## 011: Sync is push-based, at-least-once, idempotent at the hub
+
+**Date:** 2026-08-05
+**Context:** Sites push with retries across a flaky WAN; the same batch can arrive twice.
+**Decision:** Hub ingest is idempotent by construction: events dedupe on (site, topic, site_seq) with INSERT OR IGNORE, aggregates upsert on (site, topic, window_start). Sites advance durable high-water marks only after hub acknowledgment. Replays are free; loss is impossible without breaking the hwm invariant.
+**Consequences:** A site database reset re-ships history (harmless). Exactly-once end-to-end for consumers is deferred to key-based dedupe, M3+.
+**Revisit when:** A design partner needs consumer-side exactly-once.
+
+## 012: The naive meter counts identical wire format, honestly
+
+**Date:** 2026-08-05
+**Context:** The bandwidth reduction number goes in front of prospects; it must survive a skeptical engineer's audit.
+**Decision:** sync_naive_bytes counts what a replicate-everything design would send: every raw event marshaled in the same wire format the real sync uses. No inflation via headers, retransmits, or pessimistic encodings. sync_actual_bytes counts real request bodies sent.
+**Consequences:** The number understates savings if anything (no HTTP overhead counted on either side). 17.9x live with a 10s window on a mixed workload; 110x on telemetry-heavy test workload with default batching.
+**Revisit when:** First skeptical-engineer audit in a POC.

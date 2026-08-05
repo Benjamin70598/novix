@@ -31,6 +31,18 @@ import (
 type Server struct {
 	Site string
 	Log  *nlog.Log
+
+	// Classify, when set, is the policy engine: it returns the class to
+	// stamp on an event written to a topic. The client-supplied class is
+	// ignored when a policy is loaded; policy is authoritative
+	// (DECISIONS.md 006).
+	Classify func(topic string) string
+	// AfterAppend, when set, is called after a durable append (used to
+	// kick the sync loop for immediate-class events).
+	AfterAppend func(topic, class string)
+	// StatusExtra, when set, contributes extra fields (sync state,
+	// bandwidth meters) to /v1/status.
+	StatusExtra func() map[string]any
 }
 
 // Handler returns the http.Handler for the local API.
@@ -61,10 +73,17 @@ func (s *Server) handleAppend(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, http.StatusBadRequest, "missing payload")
 		return
 	}
-	seq, err := s.Log.Append(topic, req.Key, req.Payload, req.Class)
+	class := req.Class
+	if s.Classify != nil {
+		class = s.Classify(topic)
+	}
+	seq, err := s.Log.Append(topic, req.Key, req.Payload, class)
 	if err != nil {
 		httpErr(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	if s.AfterAppend != nil {
+		s.AfterAppend(topic, class)
 	}
 	writeJSON(w, map[string]int64{"site_seq": seq})
 }
@@ -129,7 +148,11 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, map[string]any{"site": s.Site, "topics": topics})
+	out := map[string]any{"site": s.Site, "topics": topics}
+	if s.StatusExtra != nil {
+		out["sync"] = s.StatusExtra()
+	}
+	writeJSON(w, out)
 }
 
 func queryInt(r *http.Request, name string, def int64) int64 {
